@@ -9,35 +9,48 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-// FetchAll Gets all gitlab projects into RAM
-func FetchAll(client *gitlab.Client) ([]*gitlab.Project, error) {
-	page := 1
-	projects := make([]*gitlab.Project, 0)
+// Iter Gets all gitlab projects into RAM
+func Iter(client *gitlab.Client, buffer int) chan *gitlab.Project {
+	output := make(chan *gitlab.Project, buffer)
 
-	for {
-		fmt.Printf("Getting projects page = %d\n", page)
-		fetched, response, err := client.Projects.ListProjects(&gitlab.ListProjectsOptions{
-			// WTF?? Why pointer to bool? Ah maybe to accept nil!
-			Simple: gitlab.Bool(false),
-			ListOptions: gitlab.ListOptions{
-				PerPage: 100,
-				Page:    page,
-			},
-		})
+	go func() {
+		page := 1
+		projects := make([]*gitlab.Project, 0)
 
-		if err != nil {
-			return nil, err
+		for {
+			fmt.Printf("Getting projects page = %d\n", page)
+			fetched, response, err := client.Projects.ListProjects(&gitlab.ListProjectsOptions{
+				// WTF?? Why pointer to bool? Ah maybe to accept nil!
+				Simple: gitlab.Bool(false),
+				ListOptions: gitlab.ListOptions{
+					PerPage: buffer / 2,
+					Page:    page,
+				},
+			})
+
+			if err != nil {
+				close(output)
+				break
+			}
+
+			projects = append(projects, fetched...)
+
+			fmt.Printf("Fetched projectes %d/%d\n", len(projects), response.TotalItems)
+
+			for _, p := range projects {
+				output <- p
+			}
+
+			page = response.NextPage
+
+			if page == 0 {
+				close(output)
+				break
+			}
 		}
+	}()
 
-		projects = append(projects, fetched...)
-
-		fmt.Printf("Fetched projectes %d/%d\n", len(projects), response.TotalItems)
-		page = response.NextPage
-
-		if page == 0 {
-			return projects, nil
-		}
-	}
+	return output
 }
 
 // WriteJson writes a collection of projects to json file

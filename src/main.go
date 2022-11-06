@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"gi/src/projects"
 	"log"
-	"path/filepath"
 
 	"github.com/xanzy/go-gitlab"
 )
@@ -16,13 +16,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	proj, err := projects.FetchAll(client)
-	if err != nil {
-		log.Fatal(err)
+	for proj := range projects.Iter(client, 10) {
+		fmt.Printf("project: %s\n", proj.Name)
 	}
 
-	err = projects.WriteJson(filepath.Join(config.OutDir, "projects.json"), proj)
-	if err != nil {
-		log.Fatal()
-	}
+	// err = projects.WriteJson(filepath.Join(config.OutDir, "projects.json"), proj)
+	// if err != nil {
+	// 	log.Fatal()
+	// }
 }
