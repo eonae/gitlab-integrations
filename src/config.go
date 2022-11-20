@@ -15,7 +15,7 @@ type config struct {
 func mustEnv(key string) string {
 	str, ok := os.LookupEnv(key)
 	if !ok {
-		log.Fatalf("%s environment variable is not provided!", str)
+		log.Fatalf("%s environment variable is not provided!", key)
 	}
 
 	return str

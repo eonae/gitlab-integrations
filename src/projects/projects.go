@@ -5,20 +5,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-// FetchAll Gets all gitlab projects into RAM
-func FetchAll(client *gitlab.Client) ([]*gitlab.Project, error) {
+type ProjectFilters struct {
+	GroupId int
+
+	// Project name regexp pattern
+	Pattern string
+}
+
+// Fetch Gets all gitlab projects into RAM
+func Fetch(client *gitlab.Client, filters ProjectFilters) ([]*gitlab.Project, error) {
 	page := 1
 	projects := make([]*gitlab.Project, 0)
 
 	for {
 		fmt.Printf("Getting projects page = %d\n", page)
-		fetched, response, err := client.Projects.ListProjects(&gitlab.ListProjectsOptions{
-			// WTF?? Why pointer to bool? Ah maybe to accept nil!
-			Simple: gitlab.Bool(false),
+		fetched, response, err := client.Groups.ListGroupProjects(filters.GroupId, &gitlab.ListGroupProjectsOptions{
+			Simple: gitlab.Bool(true),
 			ListOptions: gitlab.ListOptions{
 				PerPage: 100,
 				Page:    page,
@@ -29,7 +36,17 @@ func FetchAll(client *gitlab.Client) ([]*gitlab.Project, error) {
 			return nil, err
 		}
 
-		projects = append(projects, fetched...)
+		for _, project := range fetched {
+			match := regexp.
+				MustCompile(filters.Pattern).
+				Match([]byte(project.Path))
+
+			if match {
+				projects = append(projects, project)
+			} else {
+				fmt.Printf("Filtered: %s\n", project.Path)
+			}
+		}
 
 		fmt.Printf("Fetched projectes %d/%d\n", len(projects), response.TotalItems)
 		page = response.NextPage
